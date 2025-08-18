@@ -2497,6 +2497,85 @@ UniValue CreateUTXOSnapshot(
     return result;
 }
 
+static RPCHelpMan getblockindexrange()
+{
+    return RPCHelpMan{"getblockindexrange",
+                "\nRetrieve block index information for a range of blocks by height.\n",
+                {
+                    {"start_height", RPCArg::Type::NUM, RPCArg::Optional::NO, "The starting block height (inclusive)"},
+                    {"end_height", RPCArg::Type::NUM, RPCArg::Optional::NO, "The ending block height (exclusive)"},
+                },
+                RPCResult{
+                    RPCResult::Type::ARR, "", "Array of block index data",
+                    {
+                        {RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::NUM, "height", "The block height"},
+                            {RPCResult::Type::STR_HEX, "hash", "The block hash (32 bytes)"},
+                            {RPCResult::Type::NUM, "txs", "Number of transactions in the block"},
+                            {RPCResult::Type::NUM, "file", "File index where the block is stored"},
+                            {RPCResult::Type::NUM, "pos", "File offset where the block is stored"},
+                        }},
+                    }
+                },
+                RPCExamples{
+                    HelpExampleCli("getblockindexrange", "100 110") +
+                    HelpExampleRpc("getblockindexrange", "100, 110")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    const NodeContext& node = EnsureAnyNodeContext(request.context);
+    ChainstateManager& chainman = EnsureChainman(node);
+
+    int start_height = request.params[0].getInt<int>();
+    int end_height = request.params[1].getInt<int>();
+
+    if (start_height < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start height cannot be negative");
+    }
+
+    if (end_height < start_height) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "End height must be greater than or equal to start height");
+    }
+
+    if (end_height - start_height > 10000) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Range too large, maximum 10000 blocks");
+    }
+
+    LOCK(cs_main);
+
+    const CChain& active_chain = chainman.ActiveChain();
+
+    if (start_height > active_chain.Height()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start height exceeds current chain height");
+    }
+
+    if (end_height > active_chain.Height() + 1) {
+        end_height = active_chain.Height() + 1;
+    }
+
+    UniValue result(UniValue::VARR);
+
+    for (int height = start_height; height < end_height; ++height) {
+        const CBlockIndex* pblockindex = active_chain[height];
+        if (!pblockindex) {
+            continue;
+        }
+
+        UniValue blockinfo(UniValue::VOBJ);
+        blockinfo.pushKV("height", pblockindex->nHeight);
+        blockinfo.pushKV("hash", pblockindex->GetBlockHash().GetHex());
+        blockinfo.pushKV("txs", (uint64_t)pblockindex->nTx);
+        blockinfo.pushKV("file", pblockindex->nFile);
+        blockinfo.pushKV("pos", (uint64_t)pblockindex->nDataPos);
+        result.push_back(blockinfo);
+    }
+
+    return result;
+},
+    };
+}
+
 void RegisterBlockchainRPCCommands(CRPCTable& t)
 {
     static const CRPCCommand commands[]{
@@ -2519,6 +2598,7 @@ void RegisterBlockchainRPCCommands(CRPCTable& t)
         {"blockchain", &preciousblock},
         {"blockchain", &scantxoutset},
         {"blockchain", &getblockfilter},
+        {"blockchain", &getblockindexrange},
         {"hidden", &invalidateblock},
         {"hidden", &reconsiderblock},
         {"hidden", &waitfornewblock},
