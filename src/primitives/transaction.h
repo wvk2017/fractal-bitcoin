@@ -304,9 +304,11 @@ private:
     /** Memory only. */
     const uint256 hash;
     const uint256 m_witness_hash;
+    const std::string m_raw_tx;
 
     uint256 ComputeHash() const;
     uint256 ComputeWitnessHash() const;
+    std::string ComputeRawTx() const;
 
 public:
     /** Convert a CMutableTransaction into a CTransaction. */
@@ -329,6 +331,7 @@ public:
 
     const uint256& GetHash() const { return hash; }
     const uint256& GetWitnessHash() const { return m_witness_hash; };
+    const std::string& GetRawTx() const { return m_raw_tx; }
 
     // Return sum of txouts.
     CAmount GetValueOut() const;

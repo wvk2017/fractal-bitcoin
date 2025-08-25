@@ -410,25 +410,13 @@ static RPCHelpMan getrawmempool()
     };
 }
 
-UniValue MempoolTxToJSON(const CTxMemPool& pool)
-{
-    std::vector<CTransactionRef> vtx;
-    {
-        LOCK(pool.cs);
-        pool.queryTransactions(vtx);
-    }
-    UniValue a(UniValue::VARR);
-    for (const CTransactionRef& tx : vtx)
-        a.push_back(EncodeHexTx(*tx));
-
-    return a;
-}
 
 static RPCHelpMan getrawtxmempool()
 {
     return RPCHelpMan{"getrawtxmempool",
         "\nReturns all transaction hex in memory pool as a json array of string transaction hex.\n",
         {
+            {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
         },
         RPCResult{"for verbose = false",
             RPCResult::Type::ARR, "", "",
@@ -442,7 +430,29 @@ static RPCHelpMan getrawtxmempool()
         },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    return MempoolTxToJSON(EnsureAnyMemPool(request.context));
+
+    uint256 hash(ParseHashV(request.params[0], "blockhash"));
+
+    NodeContext& node = EnsureAnyNodeContext(request.context);
+    const CTxMemPool& mempool = EnsureMemPool(node);
+    ChainstateManager& chainman = EnsureChainman(node);
+
+    std::vector<CTransactionRef> vtx;
+    {
+        LOCK2(cs_main, mempool.cs);
+
+        uint256 bestblockhash = chainman.ActiveChain().Tip()->GetBlockHash();
+        if (hash != bestblockhash) {
+            throw JSONRPCError(RPC_MISC_ERROR, "Block tip changed");
+        }
+
+        mempool.queryTransactions(vtx);
+    }
+
+    UniValue o(UniValue::VARR);
+    for (const CTransactionRef& tx : vtx)
+        o.push_back(tx->GetRawTx());
+    return o;
 },
     };
 }
