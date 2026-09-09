@@ -32,6 +32,5 @@ jobs:
           push: true
           # Hier voegen we de specifieke versie én de latest tag toe (gescheiden door een nieuwe regel)
           tags: |
-            wvk2017/nodes:fractal-bitcoin
             wvk2017/nodes:fractal-bitcoin-v0.4.0
           labels: 0.4.0
