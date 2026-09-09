@@ -32,6 +32,6 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: wvk2017/nodes:fractal-bitcoin:0.4.0
-          #tags:
+          tags: wvk2017/nodes:fractal-bitcoin
+                wvk2017/nodes:fractal-bitcoin-0.4.0
           labels: ${{ steps.meta.outputs.labels }}
